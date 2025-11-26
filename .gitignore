@@ -1,0 +1,6 @@
+.venv/
+node_modules
+
+/venv/*
+venv/bin/autopep8
+.idx

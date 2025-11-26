@@ -1,0 +1,17 @@
+{
+  "terminal.integrated.defaultProfile.linux": "Python Venv",
+  "terminal.integrated.profiles.linux": {
+    "bash": {
+      "path": "/bin/bash",
+      "args": ["--init-file", ".vscode/terminal-init.sh"]
+    },
+    "Python Venv": {
+      "path": "/bin/bash",
+      "args": ["--init-file", ".vscode/terminal-init.sh"]
+    }
+  },
+  "terminal.integrated.automationProfile.linux": {
+    "path": "/bin/bash",
+    "args": ["--init-file", ".vscode/terminal-init.sh"]
+  }
+}
