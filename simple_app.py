@@ -5,6 +5,10 @@ import urllib.parse
 import csv
 import io
 import warnings
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- Core Logic Function ---
 def get_analysis_for_address(address):
@@ -63,7 +67,7 @@ def get_analysis_for_address(address):
         warnings.filterwarnings('ignore', message='Unverified HTTPS request')
         cirac_url = "https://segurmaps.apseguradores.pt/api/v2/extract?map_id=36"
         cirac_headers = {
-            "Authorization": "Bearer 8e4b46eb-ce25-424b-83ee-2e21f52a476b",
+            "Authorization": os.getenv("AUTHORIZATION"),
             "content-type": "application/json",
             "accept": "application/json"
         }

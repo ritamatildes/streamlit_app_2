@@ -4,6 +4,10 @@ import urllib.parse
 import csv
 import io
 import warnings
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def analyze_address():
     address = input("Por favor, introduza a morada para análise: ")
@@ -54,7 +58,7 @@ def analyze_address():
         warnings.filterwarnings('ignore', message='Unverified HTTPS request')
         cirac_url = "https://segurmaps.apseguradores.pt/api/v2/extract?map_id=36"
         cirac_headers = {
-            "Authorization": "Bearer 8e4b46eb-ce25-424b-83ee-2e21f52a476b",
+            "Authorization": os.getenv("AUTHORIZATION"),
             "content-type": "application/json",
             "accept": "application/json"
         }
