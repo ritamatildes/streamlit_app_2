@@ -190,7 +190,7 @@ if st.button("Analisar Morada"):
                     layers_to_render.append(poi_layer)
 
                 st.pydeck_chart(pdk.Deck(
-                    map_style='mapbox://styles/mapbox/light-v9',
+                    map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
                     initial_view_state=pdk.ViewState(
                         latitude=lat,
                         longitude=lon,
@@ -199,7 +199,7 @@ if st.button("Analisar Morada"):
                         bearing=0
                     ),
                     layers=layers_to_render,
-                    tooltip={"html": "<b>{name}</b>", "style": {"color": "white"}}
+                    tooltip={"text": "{name}"}
                 ))
 
             if final_class == "BAIXO":
