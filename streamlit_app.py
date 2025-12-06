@@ -77,7 +77,7 @@ def get_analysis_for_address(address):
         out_cirac_cod = 3
         out_cirac_desc = "Risco moderado"
 
-        radius = 500
+        radius = 500 # Keep POI radius at 500m as requested
         overpass_url = "https://overpass-api.de/api/interpreter"
         overpass_query = f'''
         [out:json];
@@ -154,7 +154,7 @@ def get_analysis_for_address(address):
 st.title("Análise de Potencial de Morada")
 
 address_input = st.text_input("Por favor, introduza a morada para análise:", "")
-basemap_selection = st.radio("Escolha o tipo de mapa:", ("Satélite", "Padrão"))
+basemap_selection = st.radio("Escolha o tipo de mapa:", ("Padrão", "Satélite"))
 
 if st.button("Analisar Morada"):
     if address_input:
@@ -165,14 +165,14 @@ if st.button("Analisar Morada"):
                 lat = float(lat)
                 lon = float(lon)
                 
-                address_df = pd.DataFrame([{'lat': lat, 'lon': lon, 'name': 'Morada Analisada'}])
+                address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
 
                 address_layer = pdk.Layer(
                     "ScatterplotLayer",
                     data=address_df,
                     get_position='[lon, lat]',
                     get_fill_color=[255, 0, 0], # Red
-                    get_radius=40,
+                    get_radius=50,
                     pickable=True
                 )
                 
@@ -185,14 +185,14 @@ if st.button("Analisar Morada"):
                         data=poi_df,
                         get_position='[lon, lat]',
                         get_fill_color=[0, 0, 255], # Blue
-                        get_radius=10,
+                        get_radius=15,
                         pickable=True
                     )
                     layers_to_render.append(poi_layer)
                 
                 # Set map style based on user selection
                 if basemap_selection == "Satélite":
-                    map_style = "https://www.arcgis.com/sharing/rest/content/items/10df2279f9684e4a9f6a7f08febac2a9/resources/styles/root.json"
+                    map_style = "https://basemaps.cartocdn.com/gl/satellite-gl-style/style.json"
                 else:
                     map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 
@@ -201,7 +201,7 @@ if st.button("Analisar Morada"):
                     initial_view_state=pdk.ViewState(
                         latitude=lat,
                         longitude=lon,
-                        zoom=14,
+                        zoom=15, # Zoom to approx 1km view
                         pitch=0,
                         bearing=0
                     ),
