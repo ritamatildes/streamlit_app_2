@@ -154,6 +154,7 @@ def get_analysis_for_address(address):
 st.title("Análise de Potencial de Morada")
 
 address_input = st.text_input("Por favor, introduza a morada para análise:", "")
+basemap_selection = st.radio("Escolha o tipo de mapa:", ("Satélite", "Padrão"))
 
 if st.button("Analisar Morada"):
     if address_input:
@@ -171,7 +172,7 @@ if st.button("Analisar Morada"):
                     data=address_df,
                     get_position='[lon, lat]',
                     get_fill_color=[255, 0, 0], # Red
-                    get_radius=50,
+                    get_radius=40,
                     pickable=True
                 )
                 
@@ -184,13 +185,19 @@ if st.button("Analisar Morada"):
                         data=poi_df,
                         get_position='[lon, lat]',
                         get_fill_color=[0, 0, 255], # Blue
-                        get_radius=15,
+                        get_radius=10,
                         pickable=True
                     )
                     layers_to_render.append(poi_layer)
+                
+                # Set map style based on user selection
+                if basemap_selection == "Satélite":
+                    map_style = "https://www.arcgis.com/sharing/rest/content/items/10df2279f9684e4a9f6a7f08febac2a9/resources/styles/root.json"
+                else:
+                    map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 
                 st.pydeck_chart(pdk.Deck(
-                    map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+                    map_style=map_style,
                     initial_view_state=pdk.ViewState(
                         latitude=lat,
                         longitude=lon,
