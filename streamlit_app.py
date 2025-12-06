@@ -5,6 +5,7 @@ import urllib.parse
 import csv
 import io
 import pandas as pd
+import pydeck as pdk
 
 # --- Set Background Color ---
 page_bg_img = """
@@ -21,7 +22,7 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 def get_analysis_for_address(address):
     """
     This function takes an address and performs all the data gathering and analysis.
-    It returns the final message, class, and coordinates.
+    It returns the final message, class, coordinates, and POI locations.
     """
     safe_address = urllib.parse.quote(address)
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_address}&format=json"
@@ -32,17 +33,17 @@ def get_analysis_for_address(address):
         geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
 
     if not input_lat or not input_lon:
-        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -51,14 +52,15 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None
 
     # --- Data Gathering (Population, CIRAC, POIs) ---
+    poi_locations = []
     try:
         csv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0A79pNYNO4YD-jhyZ4baNjHsGZCsAyTgVlZgaoSGdKN_ehlS5fUnwmESyknqyy-Wf9-30OnjdCR3I/pub?gid=0&single=true&output=csv"
         csv_response = requests.get(csv_url)
@@ -89,17 +91,32 @@ def get_analysis_for_address(address):
         poi_response = requests.post(overpass_url, data=overpass_query)
         poi_response.raise_for_status()
         poi_data = poi_response.json()
-        points_of_interest = [el.get('tags', {}).get('name') for el in poi_data.get('elements', []) if el.get('tags', {}).get('name')]
-        out_poi_count = len(points_of_interest)
+        
+        unique_poi_coords = set()
+        for el in poi_data.get('elements', []):
+            tags = el.get('tags', {})
+            name = tags.get('name')
+            if name:
+                lat, lon = (None, None)
+                if el['type'] == 'node':
+                    lat, lon = el.get('lat'), el.get('lon')
+                elif 'center' in el:
+                    lat, lon = el['center'].get('lat'), el['center'].get('lon')
+                
+                if lat and lon and (lat, lon) not in unique_poi_coords:
+                    poi_locations.append({'name': name, 'lat': lat, 'lon': lon})
+                    unique_poi_coords.add((lat, lon))
+
+        out_poi_count = len(poi_locations)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None
 
     # --- Scoring ---
     final_class = None
     if out_pop and out_poi_count >= 0:
         numeric_population = int(out_pop.replace(",", ""))
-        resid_poi = numeric_population / (out_poi_count + 1) # Avoid division by zero
+        resid_poi = numeric_population / (out_poi_count + 1)
         
         POP_MIN, POP_MAX = 384, 545_796
         CIRAC_MIN, CIRAC_MAX = 1.0, 5.0
@@ -131,7 +148,7 @@ def get_analysis_for_address(address):
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
-    return message, final_class, input_lat, input_lon
+    return message, final_class, input_lat, input_lon, poi_locations
 
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
@@ -141,21 +158,57 @@ address_input = st.text_input("Por favor, introduza a morada para análise:", ""
 if st.button("Analisar Morada"):
     if address_input:
         with st.spinner("A analisar... Por favor, aguarde."):
-            result_message, final_class, lat, lon = get_analysis_for_address(address_input)
+            result_message, final_class, lat, lon, poi_locations = get_analysis_for_address(address_input)
 
-            # Display the map if we have coordinates
             if lat and lon:
-                map_data = pd.DataFrame({'lat': [float(lat)], 'lon': [float(lon)]})
-                st.map(map_data)
+                lat = float(lat)
+                lon = float(lon)
+                
+                address_df = pd.DataFrame([{'lat': lat, 'lon': lon, 'name': 'Morada Analisada'}])
 
-            # Use the final_class to decide the color
+                address_layer = pdk.Layer(
+                    "ScatterplotLayer",
+                    data=address_df,
+                    get_position='[lon, lat]',
+                    get_fill_color=[255, 0, 0], # Red
+                    get_radius=100,
+                    pickable=True
+                )
+                
+                layers_to_render = [address_layer]
+
+                if poi_locations:
+                    poi_df = pd.DataFrame(poi_locations)
+                    poi_layer = pdk.Layer(
+                        "ScatterplotLayer",
+                        data=poi_df,
+                        get_position='[lon, lat]',
+                        get_fill_color=[0, 0, 255], # Blue
+                        get_radius=25,
+                        pickable=True
+                    )
+                    layers_to_render.append(poi_layer)
+
+                st.pydeck_chart(pdk.Deck(
+                    map_style='mapbox://styles/mapbox/light-v9',
+                    initial_view_state=pdk.ViewState(
+                        latitude=lat,
+                        longitude=lon,
+                        zoom=14,
+                        pitch=0,
+                        bearing=0
+                    ),
+                    layers=layers_to_render,
+                    tooltip={"html": "<b>{name}</b>", "style": {"color": "white"}}
+                ))
+
             if final_class == "BAIXO":
                 st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
             elif final_class == "MÉDIO":
                 st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
             elif final_class == "ALTO":
                 st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-            else: # This will handle error messages that don't have a class
+            else:
                 st.warning(result_message)
     else:
         st.warning("Por favor, introduza uma morada.")
