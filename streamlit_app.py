@@ -136,7 +136,7 @@ def get_analysis_for_address(address):
         cirac_norm_inv = 1.0 - cirac_norm
         resid_norm_inv = 1.0 - resid_norm
 
-        w_pop, w_cirac, w_poi = 0.4, 0.3, 0.3
+        w_pop, w_cirac, w_poi = 0.3, 0.5, 0.2
         final_score = (w_pop * pop_norm + w_cirac * cirac_norm_inv + w_poi * resid_norm_inv)
 
         if final_score < 0.33: final_class = "REDUZIDO"
@@ -216,7 +216,7 @@ if st.button("Analisar Morada"):
                         get_icon="icon_data",
                         get_position='[lon, lat]',
                         get_size=4,
-                        size_scale=15,
+                        size_scale=10,
                         pickable=True,
                     )
                     
@@ -232,7 +232,7 @@ if st.button("Analisar Morada"):
                             get_icon="icon_data",
                             get_position='[lon, lat]',
                             get_size=4,
-                            size_scale=10,
+                            size_scale=7,
                             pickable=True,
                         )
                         layers_to_render.append(poi_layer)
