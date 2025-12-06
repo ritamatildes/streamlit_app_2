@@ -171,7 +171,7 @@ if st.button("Analisar Morada"):
                     data=address_df,
                     get_position='[lon, lat]',
                     get_fill_color=[255, 0, 0], # Red
-                    get_radius=50,
+                    get_radius=25,
                     pickable=True
                 )
                 
@@ -184,7 +184,7 @@ if st.button("Analisar Morada"):
                         data=poi_df,
                         get_position='[lon, lat]',
                         get_fill_color=[0, 0, 255], # Blue
-                        get_radius=15,
+                        get_radius=7,
                         pickable=True
                     )
                     layers_to_render.append(poi_layer)
