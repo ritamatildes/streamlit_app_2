@@ -6,6 +6,7 @@ import csv
 import io
 import pandas as pd
 import pydeck as pdk
+from collections import Counter
 
 # --- Set Background Color ---
 page_bg_img = """
@@ -33,17 +34,17 @@ def get_analysis_for_address(address):
         geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None, None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None, None, None, None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
 
     if not input_lat or not input_lon:
-        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -52,18 +53,19 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None, None
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None, None, None, None, None
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None, None, None, None, None, None
 
     # --- Data Gathering (Population, CIRAC, POIs) ---
     poi_locations = []
     out_pop = None
     out_cirac_desc = None
     out_poi_count = None
+    poi_categories = None
     try:
         csv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0A79pNYNO4YD-jhyZ4baNjHsGZCsAyTgVlZgaoSGdKN_ehlS5fUnwmESyknqyy-Wf9-30OnjdCR3I/pub?gid=0&single=true&output=csv"
         csv_response = requests.get(csv_url)
@@ -94,11 +96,13 @@ def get_analysis_for_address(address):
         poi_response.raise_for_status()
         poi_data = poi_response.json()
         
+        poi_amenities = []
         unique_poi_coords = set()
         for el in poi_data.get('elements', []):
             tags = el.get('tags', {})
             name = tags.get('name')
-            if name:
+            amenity = tags.get('amenity')
+            if name and amenity:
                 lat, lon = (None, None)
                 if el['type'] == 'node':
                     lat, lon = el.get('lat'), el.get('lon')
@@ -107,12 +111,15 @@ def get_analysis_for_address(address):
                 
                 if lat and lon and (lat, lon) not in unique_poi_coords:
                     poi_locations.append({'name': name, 'lat': lat, 'lon': lon})
+                    poi_amenities.append(amenity.replace('_', ' ').capitalize())
                     unique_poi_coords.add((lat, lon))
 
         out_poi_count = len(poi_locations)
+        if poi_amenities:
+            poi_categories = Counter(poi_amenities)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None, out_municipality, out_pop, out_cirac_desc, out_poi_count
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None, out_municipality, out_pop, out_cirac_desc, out_poi_count, None
 
     # --- Scoring ---
     final_class = None
@@ -150,7 +157,7 @@ def get_analysis_for_address(address):
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
-    return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count
+    return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories
 
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
@@ -160,16 +167,16 @@ address_input = st.text_input("Por favor, introduza a morada para análise:", ""
 if st.button("Analisar Morada"):
     if address_input:
         with st.spinner("A analisar... Por favor, aguarde."):
-            result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count = get_analysis_for_address(address_input)
+            result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories = get_analysis_for_address(address_input)
 
             if final_class:
                 # Determine color based on class
                 if final_class == "REDUZIDO":
-                    color = "#f8d7da"
+                    color = "#d4edda"
                 elif final_class == "MÉDIO":
                     color = "#fff3cd"
                 else: # ALTO
-                    color = "#d4edda"
+                    color = "#f8d7da"
 
                 # Display the main potential box at the top
                 st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong></div>', unsafe_allow_html=True)
@@ -178,15 +185,20 @@ if st.button("Analisar Morada"):
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    # Use the same color for the detailed message box
-                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; height: 150px;">{result_message}</div>', unsafe_allow_html=True)
+                    # Removed fixed height to allow dynamic sizing
+                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
                 
                 with col2:
                     st.markdown("##### Resumo dos Dados")
                     st.markdown(f"**Concelho:** {out_municipality}")
                     st.markdown(f"**População:** {out_pop}")
                     st.markdown(f"**Risco de Inundação:** {out_cirac_desc}")
-                    st.markdown(f"**Pontos de Interesse (500m):** {out_poi_count}")
+                    st.markdown(f"**Total de Pontos de Interesse (500m):** {out_poi_count}")
+                    if poi_categories:
+                        st.markdown("---")
+                        st.markdown("**Categorias de POIs:**")
+                        for category, count in sorted(poi_categories.items()):
+                            st.markdown(f"- {category}: {count}")
 
                 if lat and lon:
                     lat = float(lat)
@@ -216,7 +228,7 @@ if st.button("Analisar Morada"):
                         get_icon="icon_data",
                         get_position='[lon, lat]',
                         get_size=4,
-                        size_scale=10,
+                        size_scale=15,
                         pickable=True,
                     )
                     
@@ -232,7 +244,7 @@ if st.button("Analisar Morada"):
                             get_icon="icon_data",
                             get_position='[lon, lat]',
                             get_size=4,
-                            size_scale=7,
+                            size_scale=10,
                             pickable=True,
                         )
                         layers_to_render.append(poi_layer)
