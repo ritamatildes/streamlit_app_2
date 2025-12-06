@@ -185,7 +185,7 @@ if st.button("Analisar Morada"):
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    # Removed fixed height to allow dynamic sizing
+                    # Use the same color for the detailed message box
                     st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
                 
                 with col2:
@@ -195,10 +195,9 @@ if st.button("Analisar Morada"):
                     st.markdown(f"**Risco de Inundação:** {out_cirac_desc}")
                     st.markdown(f"**Total de Pontos de Interesse (500m):** {out_poi_count}")
                     if poi_categories:
-                        st.markdown("---")
-                        st.markdown("**Categorias de POIs:**")
-                        for category, count in sorted(poi_categories.items()):
-                            st.markdown(f"- {category}: {count}")
+                        with st.expander("Ver detalhes dos POIs"):
+                            for category, count in sorted(poi_categories.items()):
+                                st.markdown(f"- {category}: {count}")
 
                 if lat and lon:
                     lat = float(lat)
