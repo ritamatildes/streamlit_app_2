@@ -13,7 +13,7 @@ import pydeck as pdk
 page_bg_img = """
 <style>
 [data-testid="stAppViewContainer"] {
-    background-color: #e6ffef; /* A light, friendly green */
+    background-color: #ffffff; /* white */
 }
 </style>
 """
