@@ -139,7 +139,7 @@ def get_analysis_for_address(address):
         w_pop, w_cirac, w_poi = 0.4, 0.3, 0.3
         final_score = (w_pop * pop_norm + w_cirac * cirac_norm_inv + w_poi * resid_norm_inv)
 
-        if final_score < 0.33: final_class = "BAIXO"
+        if final_score < 0.33: final_class = "REDUZIDO"
         elif final_score < 0.66: final_class = "MÉDIO"
         else: final_class = "ALTO"
 
@@ -163,15 +163,23 @@ if st.button("Analisar Morada"):
             result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count = get_analysis_for_address(address_input)
 
             if final_class:
+                # Determine color based on class
+                if final_class == "REDUZIDO":
+                    color = "#d4edda"
+                elif final_class == "MÉDIO":
+                    color = "#fff3cd"
+                else: # ALTO
+                    color = "#f8d7da"
+
+                # Display the main potential box at the top
+                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong></div>', unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True) # Add some space
+
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    if final_class == "BAIXO":
-                        st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-                    elif final_class == "MÉDIO":
-                        st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-                    else: # ALTO
-                        st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                    # Use the same color for the detailed message box
+                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; height: 150px;">{result_message}</div>', unsafe_allow_html=True)
                 
                 with col2:
                     st.markdown("##### Resumo dos Dados")
