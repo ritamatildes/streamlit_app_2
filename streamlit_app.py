@@ -5,6 +5,7 @@ import urllib.parse
 import csv
 import io
 import pandas as pd
+import pydeck as pdk
 
 # --- Set Background Color ---
 page_bg_img = """
@@ -145,8 +146,37 @@ if st.button("Analisar Morada"):
 
             # Display the map if we have coordinates
             if lat and lon:
-                map_data = pd.DataFrame({'lat': [float(lat)], 'lon': [float(lon)]})
-                st.map(map_data)
+                lat = float(lat)
+                lon = float(lon)
+                
+                # Create a DataFrame for the raindrop emoji
+                map_data = pd.DataFrame([{'lat': lat, 'lon': lon, 'text': '💧'}])
+
+                # Create a layer to display the raindrop emoji as text
+                text_layer = pdk.Layer(
+                    'TextLayer',
+                    data=map_data,
+                    get_position='[lon, lat]',
+                    get_text='text',
+                    get_color=[255, 0, 0],  # Red color for the emoji
+                    get_size=48,  # Make the emoji larger
+                    get_angle=0,
+                    get_text_anchor='"middle"',
+                    get_alignment_baseline='"center"'
+                )
+                
+                # Create the map object with a 2D view
+                st.pydeck_chart(pdk.Deck(
+                    map_style='mapbox://styles/mapbox/light-v9',
+                    initial_view_state=pdk.ViewState(
+                        latitude=lat,
+                        longitude=lon,
+                        zoom=14,
+                        pitch=0,  # Set pitch to 0 for a 2D view
+                        bearing=0
+                    ),
+                    layers=[text_layer]
+                ))
 
             # Use the final_class to decide the color
             if final_class == "BAIXO":
