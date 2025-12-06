@@ -136,7 +136,7 @@ def get_analysis_for_address(address):
         cirac_norm_inv = 1.0 - cirac_norm
         resid_norm_inv = 1.0 - resid_norm
 
-        w_pop, w_cirac, w_poi = 0.3, 0.5, 0.2
+        w_pop, w_cirac, w_poi = 0.4, 0.3, 0.3
         final_score = (w_pop * pop_norm + w_cirac * cirac_norm_inv + w_poi * resid_norm_inv)
 
         if final_score < 0.33: final_class = "REDUZIDO"
@@ -165,11 +165,11 @@ if st.button("Analisar Morada"):
             if final_class:
                 # Determine color based on class
                 if final_class == "REDUZIDO":
-                    color = "#d4edda"
+                    color = "#f8d7da"
                 elif final_class == "MÉDIO":
                     color = "#fff3cd"
                 else: # ALTO
-                    color = "#f8d7da"
+                    color = "#d4edda"
 
                 # Display the main potential box at the top
                 st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong></div>', unsafe_allow_html=True)
