@@ -177,7 +177,7 @@ def get_analysis_for_address(address):
             out_pop_formatted = out_pop
 
         message = f'''<p>A morada analizada localiza-se no concelho ({out_municipality}) onde residem {out_pop_formatted} pessoas.</p>
-<p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} pontos de interesse.</p>'''
+<p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} POIs.</p>'''
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
         
@@ -242,12 +242,12 @@ if st.session_state.analysis_result:
             if poi_categories:
                 poi_col1, poi_col2 = st.columns([2,1])
                 with poi_col1:
-                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de POIs (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
                 with poi_col2:
                     if st.button("🔍"):
                         st.session_state.show_poi_details = not st.session_state.show_poi_details
             else:
-                 st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
+                 st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de POIs (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
 
 
             if st.session_state.show_poi_details and poi_categories:
