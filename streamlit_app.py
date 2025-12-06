@@ -192,28 +192,36 @@ if st.button("Analisar Morada"):
                     lat = float(lat)
                     lon = float(lon)
                     
-                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
+                    # Add icon_text for the main address
+                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon, 'icon_text': '📍'}])
 
+                    # The main address marker
                     address_layer = pdk.Layer(
-                        "ScatterplotLayer",
+                        "TextLayer",
                         data=address_df,
                         get_position='[lon, lat]',
-                        get_fill_color=[255, 0, 0], # Red
-                        get_radius=25,
-                        pickable=True
+                        get_text='icon_text',
+                        get_color=[255, 0, 0],
+                        get_size=32, # Larger size for the main marker
+                        pickable=True,
                     )
                     
                     layers_to_render = [address_layer]
 
                     if poi_locations:
                         poi_df = pd.DataFrame(poi_locations)
+                        # Add icon_text for POIs
+                        poi_df['icon_text'] = '🔵'
+                        
+                        # The POI markers
                         poi_layer = pdk.Layer(
-                            "ScatterplotLayer",
+                            "TextLayer",
                             data=poi_df,
                             get_position='[lon, lat]',
-                            get_fill_color=[0, 0, 255], # Blue
-                            get_radius=7,
-                            pickable=True
+                            get_text='icon_text',
+                            get_color=[0, 0, 255],
+                            get_size=16, # Smaller size for POIs
+                            pickable=True,
                         )
                         layers_to_render.append(poi_layer)
                     
