@@ -8,13 +8,14 @@ import pandas as pd
 import pydeck as pdk
 from collections import Counter
 
-# --- Set Background Color ---
+# --- Set Background Color and Icons ---
 page_bg_img = """
 <style>
 [data-testid="stAppViewContainer"] {
     background-color: #ffffff; /* white background */
 }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
@@ -202,10 +203,10 @@ if st.button("Analisar Morada"):
                         out_pop_formatted = f"{pop_number:,}".replace(",", " ")
                     except (ValueError, TypeError):
                         out_pop_formatted = out_pop
-                    st.markdown(f"<p style='font-size:0.9em'><strong>Concelho:</strong> {out_municipality}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.9em'><strong>População:</strong> {out_pop_formatted}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.9em'><strong>Risco de Inundação:</strong> {out_cirac_desc}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.9em'><strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marked-alt'></i>&nbsp;&nbsp;<strong>Concelho:</strong> {out_municipality}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-users'></i>&nbsp;&nbsp;<strong>População:</strong> {out_pop_formatted}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-cloud-rain'></i>&nbsp;&nbsp;<strong>Risco de Inundação:</strong> {out_cirac_desc}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
 
                     if poi_categories:
                         with st.expander("Ver detalhes dos POIs"):
