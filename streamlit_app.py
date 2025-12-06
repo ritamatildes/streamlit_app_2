@@ -16,15 +16,15 @@ page_bg_img = """
 }
 
 /* Custom style for the analysis button */
-div[data-testid="stButton"] > button {
-    border: 2px solid #ff4b4b;
-    color: #ff4b4b;
+div.stButton > button {
+    border: 2px solid #808080; /* grey */
+    color: #808080; /* grey */
 }
 
-div[data-testid="stButton"] > button:hover {
-    border: 2px solid #ff4b4b;
+div.stButton > button:hover {
+    border: 2px solid #808080; /* grey */
     color: white;
-    background-color: #ff4b4b;
+    background-color: #808080; /* grey */
 }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
@@ -34,10 +34,7 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # --- Core Logic Function ---
 def get_analysis_for_address(address):
-    """
-    This function takes an address and performs all the data gathering and analysis.
-    It returns the final message, class, coordinates, POI locations, and summary data.
-    """
+    # ... (rest of the function is unchanged, so it is omitted for brevity) ...
     safe_address = urllib.parse.quote(address)
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_address}&format=json"
     headers = {'User-Agent': 'MyStreamlitApp/1.0'}
@@ -47,17 +44,17 @@ def get_analysis_for_address(address):
         geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None, None, None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None, None, None, None, None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None, None
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
 
     if not input_lat or not input_lon:
-        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None, None
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -66,14 +63,13 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None, None, None
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None, None, None, None, None, None
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None, None, None, None, None, None, None
 
-    # --- Data Gathering (Population, CIRAC, POIs) ---
     poi_locations = []
     out_pop = None
     out_cirac_desc = None
@@ -96,15 +92,7 @@ def get_analysis_for_address(address):
 
         radius = 500
         overpass_url = "https://overpass-api.de/api/interpreter"
-        overpass_query = f'''
-        [out:json];
-        (
-          node["amenity"](around:{radius},{input_lat},{input_lon});
-          way["amenity"](around:{radius},{input_lat},{input_lon});
-          relation["amenity"](around:{radius},{input_lat},{input_lon});
-        );
-        out center;
-        '''
+        overpass_query = f'''[out:json];(node["amenity"](around:{radius},{input_lat},{input_lon});way["amenity"](around:{radius},{input_lat},{input_lon});relation["amenity"](around:{radius},{input_lat},{input_lon}););out center;'''
         poi_response = requests.post(overpass_url, data=overpass_query)
         poi_response.raise_for_status()
         poi_data = poi_response.json()
@@ -132,9 +120,8 @@ def get_analysis_for_address(address):
             poi_categories = Counter(poi_amenities)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None, out_municipality, out_pop, out_cirac_desc, out_poi_count, None
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None, out_municipality, out_pop, out_cirac_desc, out_poi_count, None, address
 
-    # --- Scoring ---
     final_class = None
     if out_pop and out_poi_count >= 0:
         numeric_population = int(out_pop.replace(",", ""))
@@ -163,7 +150,6 @@ def get_analysis_for_address(address):
         elif final_score < 0.66: final_class = "MÉDIO"
         else: final_class = "ALTO"
 
-    # --- Return Final Message ---
     message = ""
     if final_class and out_pop and out_cirac_desc:
         try:
@@ -177,124 +163,102 @@ def get_analysis_for_address(address):
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
-    return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories
+    return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories, address
 
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
 
+# Initialize session state
+if 'analysis_result' not in st.session_state:
+    st.session_state.analysis_result = None
+if 'show_poi_details' not in st.session_state:
+    st.session_state.show_poi_details = False
+
+def clear_state():
+    st.session_state.analysis_result = None
+    st.session_state.show_poi_details = False
+
+# Input and button layout
 col1, col2 = st.columns([3, 1])
-
 with col1:
-    address_input = st.text_input("Por favor, introduza a morada para análise:", "")
-
+    address_input = st.text_input("Por favor, introduza a morada para análise:", "", on_change=clear_state)
 with col2:
     st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
     analyze_button = st.button("Analisar Morada")
 
-if analyze_button:
-    if address_input:
-        with st.spinner("A analisar... Por favor, aguarde."):
-            result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories = get_analysis_for_address(address_input)
+if analyze_button and address_input:
+    with st.spinner("A analisar... Por favor, aguarde."):
+        st.session_state.analysis_result = get_analysis_for_address(address_input)
+        st.session_state.show_poi_details = False # Reset on new analysis
+elif analyze_button and not address_input:
+    st.warning("Por favor, introduza uma morada.")
 
-            if final_class:
-                # Determine color based on class
-                if final_class == "REDUZIDO":
-                    color = "#d4edda"
-                elif final_class == "MÉDIO":
-                    color = "#fff3cd"
-                else: # ALTO
-                    color = "#f8d7da"
+# Display results if they exist in session state
+if st.session_state.analysis_result:
+    result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories, analyzed_address = st.session_state.analysis_result
 
-                # Display the main potential box at the top
-                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><span style="font-size: 1.5em;"><strong>POTENCIAL {final_class}</strong></span><br><span style="font-size: 1.2em;">{address_input}</span></div>', unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True) # Add some space
+    if final_class:
+        if final_class == "REDUZIDO": color = "#d4edda"
+        elif final_class == "MÉDIO": color = "#fff3cd"
+        else: color = "#f8d7da"
 
-                col1, col2 = st.columns(2)
+        st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><span style="font-size: 1.5em;"><strong>POTENCIAL {final_class}</strong></span><br><span style="font-size: 1.2em;">{analyzed_address}</span></div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
-                with col1:
-                    # Use the same color for the detailed message box
-                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; font-size: 0.9em;">{result_message}</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown("##### Resumo dos Dados")
-                    try:
-                        pop_number = int(out_pop.replace(",", ""))
-                        out_pop_formatted = f"{pop_number:,}".replace(",", " ")
-                    except (ValueError, TypeError):
-                        out_pop_formatted = out_pop
-                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marked-alt'></i>&nbsp;&nbsp;<strong>Concelho:</strong> {out_municipality}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-users'></i>&nbsp;&nbsp;<strong>População:</strong> {out_pop_formatted}</p>", unsafe_allow_html=True)
-                    st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-cloud-rain'></i>&nbsp;&nbsp;<strong>Risco de Inundação:</strong> {out_cirac_desc}</p>", unsafe_allow_html=True)
+        res_col1, res_col2 = st.columns(2)
+        with res_col1:
+            st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; font-size: 0.9em;">{result_message}</div>', unsafe_allow_html=True)
+        
+        with res_col2:
+            st.markdown("##### Resumo dos Dados")
+            try:
+                pop_number = int(out_pop.replace(",", ""))
+                out_pop_formatted = f"{pop_number:,}".replace(",", " ")
+            except (ValueError, TypeError):
+                out_pop_formatted = out_pop
+            
+            st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marked-alt'></i>&nbsp;&nbsp;<strong>Concelho:</strong> {out_municipality}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-users'></i>&nbsp;&nbsp;<strong>População:</strong> {out_pop_formatted}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-cloud-rain'></i>&nbsp;&nbsp;<strong>Risco de Inundação:</strong> {out_cirac_desc}</p>", unsafe_allow_html=True)
+
+            if poi_categories:
+                poi_col1, poi_col2 = st.columns([2,1])
+                with poi_col1:
                     st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
-
-                    if poi_categories:
-                        with st.expander("Ver detalhes dos POIs"):
-                            for category, count in sorted(poi_categories.items()):
-                                st.markdown(f"<div style='font-size:0.9em'>- {category}: {count}</div>", unsafe_allow_html=True)
-
-                if lat and lon:
-                    lat = float(lat)
-                    lon = float(lon)
-
-                    ICON_DATA = {
-                        "address": {
-                            "url": "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                            "width": 128,
-                            "height": 128,
-                            "anchorY": 128,
-                        },
-                        "poi": {
-                            "url": "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                            "width": 128,
-                            "height": 128,
-                            "anchorY": 128,
-                        }
-                    }
-
-                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
-                    address_df["icon_data"] = [ICON_DATA["address"]]
-
-                    address_layer = pdk.Layer(
-                        "IconLayer",
-                        data=address_df,
-                        get_icon="icon_data",
-                        get_position='[lon, lat]',
-                        get_size=4,
-                        size_scale=15,
-                        pickable=True,
-                    )
-                    
-                    layers_to_render = [address_layer]
-
-                    if poi_locations:
-                        poi_df = pd.DataFrame(poi_locations)
-                        poi_df["icon_data"] = [ICON_DATA["poi"]] * len(poi_locations)
-                        
-                        poi_layer = pdk.Layer(
-                            "IconLayer",
-                            data=poi_df,
-                            get_icon="icon_data",
-                            get_position='[lon, lat]',
-                            get_size=4,
-                            size_scale=10,
-                            pickable=True,
-                        )
-                        layers_to_render.append(poi_layer)
-                    
-                    st.pydeck_chart(pdk.Deck(
-                        map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-                        initial_view_state=pdk.ViewState(
-                            latitude=lat,
-                            longitude=lon,
-                            zoom=15,
-                            pitch=0,
-                            bearing=0
-                        ),
-                        layers=layers_to_render,
-                        tooltip={"text": "{name}"}
-                    ))
+                with poi_col2:
+                    if st.button("🔍 Detalhes"):
+                        st.session_state.show_poi_details = not st.session_state.show_poi_details
             else:
-                st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                 st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
 
+
+            if st.session_state.show_poi_details and poi_categories:
+                for category, count in sorted(poi_categories.items()):
+                    st.markdown(f"<div style='font-size:0.8em; padding-left: 20px;'>- {category}: {count}</div>", unsafe_allow_html=True)
+
+        if lat and lon:
+            lat, lon = float(lat), float(lon)
+            ICON_DATA = {
+                "address": {"url": "https://maps.google.com/mapfiles/ms/icons/red-dot.png", "width": 128, "height": 128, "anchorY": 128},
+                "poi": {"url": "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", "width": 128, "height": 128, "anchorY": 128}
+            }
+            address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
+            address_df["icon_data"] = [ICON_DATA["address"]]
+            address_layer = pdk.Layer("IconLayer", data=address_df, get_icon="icon_data", get_position='[lon, lat]', get_size=4, size_scale=15, pickable=True)
+            layers_to_render = [address_layer]
+
+            if poi_locations:
+                poi_df = pd.DataFrame(poi_locations)
+                poi_df["icon_data"] = [ICON_DATA["poi"]] * len(poi_locations)
+                poi_layer = pdk.Layer("IconLayer", data=poi_df, get_icon="icon_data", get_position='[lon, lat]', get_size=4, size_scale=10, pickable=True)
+                layers_to_render.append(poi_layer)
+            
+            st.pydeck_chart(pdk.Deck(
+                map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+                initial_view_state=pdk.ViewState(latitude=lat, longitude=lon, zoom=15, pitch=0, bearing=0),
+                layers=layers_to_render,
+                tooltip={"text": "{name}"}
+            ))
     else:
-        st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">Por favor, introduza uma morada.</div>', unsafe_allow_html=True)
+        st.error(result_message)
+
