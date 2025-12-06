@@ -22,7 +22,7 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 def get_analysis_for_address(address):
     """
     This function takes an address and performs all the data gathering and analysis.
-    It returns the final message, class, coordinates, and POI locations.
+    It returns the final message, class, coordinates, POI locations, and summary data.
     """
     safe_address = urllib.parse.quote(address)
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_address}&format=json"
@@ -33,17 +33,17 @@ def get_analysis_for_address(address):
         geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None, None, None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
 
     if not input_lat or not input_lon:
-        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -52,15 +52,18 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None, None, None, None, None
 
     # --- Data Gathering (Population, CIRAC, POIs) ---
     poi_locations = []
+    out_pop = None
+    out_cirac_desc = None
+    out_poi_count = None
     try:
         csv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0A79pNYNO4YD-jhyZ4baNjHsGZCsAyTgVlZgaoSGdKN_ehlS5fUnwmESyknqyy-Wf9-30OnjdCR3I/pub?gid=0&single=true&output=csv"
         csv_response = requests.get(csv_url)
@@ -68,7 +71,6 @@ def get_analysis_for_address(address):
         csv_text = csv_response.text
         csv_file = io.StringIO(csv_text)
         csv_reader = csv.reader(csv_file)
-        out_pop = None
         for row in csv_reader:
             if len(row) > 2 and row[1] == out_municipality:
                 out_pop = row[2]
@@ -77,7 +79,7 @@ def get_analysis_for_address(address):
         out_cirac_cod = 3
         out_cirac_desc = "Risco moderado"
 
-        radius = 500 # Keep POI radius at 500m as requested
+        radius = 500
         overpass_url = "https://overpass-api.de/api/interpreter"
         overpass_query = f'''
         [out:json];
@@ -110,7 +112,7 @@ def get_analysis_for_address(address):
         out_poi_count = len(poi_locations)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None, out_municipality, out_pop, out_cirac_desc, out_poi_count
 
     # --- Scoring ---
     final_class = None
@@ -144,11 +146,11 @@ def get_analysis_for_address(address):
     # --- Return Final Message ---
     message = ""
     if final_class and out_pop and out_cirac_desc:
-        message = f"A morada que analisou ({address}) apresenta um potencial {final_class}: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
+        message = f"A morada que analisou ({address}) apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
-    return message, final_class, input_lat, input_lon, poi_locations
+    return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count
 
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
@@ -158,57 +160,69 @@ address_input = st.text_input("Por favor, introduza a morada para análise:", ""
 if st.button("Analisar Morada"):
     if address_input:
         with st.spinner("A analisar... Por favor, aguarde."):
-            result_message, final_class, lat, lon, poi_locations = get_analysis_for_address(address_input)
+            result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count = get_analysis_for_address(address_input)
 
-            if lat and lon:
-                lat = float(lat)
-                lon = float(lon)
+            if final_class:
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if final_class == "BAIXO":
+                        st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                    elif final_class == "MÉDIO":
+                        st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                    else: # ALTO
+                        st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
                 
-                address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
+                with col2:
+                    st.markdown("##### Resumo dos Dados")
+                    st.markdown(f"**Concelho:** {out_municipality}")
+                    st.markdown(f"**População:** {out_pop}")
+                    st.markdown(f"**Risco de Inundação:** {out_cirac_desc}")
+                    st.markdown(f"**Pontos de Interesse (500m):** {out_poi_count}")
 
-                address_layer = pdk.Layer(
-                    "ScatterplotLayer",
-                    data=address_df,
-                    get_position='[lon, lat]',
-                    get_fill_color=[255, 0, 0], # Red
-                    get_radius=25,
-                    pickable=True
-                )
-                
-                layers_to_render = [address_layer]
+                if lat and lon:
+                    lat = float(lat)
+                    lon = float(lon)
+                    
+                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
 
-                if poi_locations:
-                    poi_df = pd.DataFrame(poi_locations)
-                    poi_layer = pdk.Layer(
+                    address_layer = pdk.Layer(
                         "ScatterplotLayer",
-                        data=poi_df,
+                        data=address_df,
                         get_position='[lon, lat]',
-                        get_fill_color=[0, 0, 255], # Blue
-                        get_radius=7,
+                        get_fill_color=[255, 0, 0], # Red
+                        get_radius=25,
                         pickable=True
                     )
-                    layers_to_render.append(poi_layer)
-                
-                st.pydeck_chart(pdk.Deck(
-                    map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-                    initial_view_state=pdk.ViewState(
-                        latitude=lat,
-                        longitude=lon,
-                        zoom=15,
-                        pitch=0,
-                        bearing=0
-                    ),
-                    layers=layers_to_render,
-                    tooltip={"text": "{name}"}
-                ))
+                    
+                    layers_to_render = [address_layer]
 
-            if final_class == "BAIXO":
-                st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-            elif final_class == "MÉDIO":
-                st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-            elif final_class == "ALTO":
-                st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                    if poi_locations:
+                        poi_df = pd.DataFrame(poi_locations)
+                        poi_layer = pdk.Layer(
+                            "ScatterplotLayer",
+                            data=poi_df,
+                            get_position='[lon, lat]',
+                            get_fill_color=[0, 0, 255], # Blue
+                            get_radius=7,
+                            pickable=True
+                        )
+                        layers_to_render.append(poi_layer)
+                    
+                    st.pydeck_chart(pdk.Deck(
+                        map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+                        initial_view_state=pdk.ViewState(
+                            latitude=lat,
+                            longitude=lon,
+                            zoom=15,
+                            pitch=0,
+                            bearing=0
+                        ),
+                        layers=layers_to_render,
+                        tooltip={"text": "{name}"}
+                    ))
             else:
                 st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+
     else:
         st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">Por favor, introduza uma morada.</div>', unsafe_allow_html=True)
