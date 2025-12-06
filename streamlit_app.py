@@ -14,6 +14,18 @@ page_bg_img = """
 [data-testid="stAppViewContainer"] {
     background-color: #ffffff; /* white background */
 }
+
+/* Custom style for the analysis button */
+div[data-testid="stButton"] > button {
+    border: 2px solid #ff4b4b;
+    color: #ff4b4b;
+}
+
+div[data-testid="stButton"] > button:hover {
+    border: 2px solid #ff4b4b;
+    color: white;
+    background-color: #ff4b4b;
+}
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 """
@@ -170,9 +182,16 @@ def get_analysis_for_address(address):
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
 
-address_input = st.text_input("Por favor, introduza a morada para análise:", "")
+col1, col2 = st.columns([3, 1])
 
-if st.button("Analisar Morada"):
+with col1:
+    address_input = st.text_input("Por favor, introduza a morada para análise:", "")
+
+with col2:
+    st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+    analyze_button = st.button("Analisar Morada")
+
+if analyze_button:
     if address_input:
         with st.spinner("A analisar... Por favor, aguarde."):
             result_message, final_class, lat, lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories = get_analysis_for_address(address_input)
