@@ -15,7 +15,7 @@ page_bg_img = """
     background-color: #ffffff; /* white background */
 }
 
-/* Custom style for the analysis button */
+/* Custom style for the main analysis button */
 div.stButton > button {
     border: 2px solid #808080; /* grey */
     color: #808080; /* grey */
@@ -26,6 +26,24 @@ div.stButton > button:hover {
     color: white;
     background-color: #808080; /* grey */
 }
+
+/* Specific style for the smaller, nested icon button */
+div[data-testid="stHorizontalBlock"] div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button {
+    border: 1px solid #808080;
+    color: #808080;
+    background-color: transparent;
+    padding: 1px 5px;
+    font-size: 1em;
+    line-height: 1.2;
+    height: 30px; /* Make it shorter */
+}
+
+div[data-testid="stHorizontalBlock"] div[data-testid="stHorizontalBlock"] div[data-testid="stButton"] > button:hover {
+    border: 1px solid #808080;
+    color: white;
+    background-color: #808080;
+}
+
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 """
@@ -162,7 +180,7 @@ def get_analysis_for_address(address):
 <p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} pontos de interesse.</p>'''
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
-    
+        
     return message, final_class, input_lat, input_lon, poi_locations, out_municipality, out_pop, out_cirac_desc, out_poi_count, poi_categories, address
 
 # --- Streamlit App Interface ---
@@ -226,7 +244,7 @@ if st.session_state.analysis_result:
                 with poi_col1:
                     st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
                 with poi_col2:
-                    if st.button("🔍 Detalhes"):
+                    if st.button("🔍"):
                         st.session_state.show_poi_details = not st.session_state.show_poi_details
             else:
                  st.markdown(f"<p style='font-size:0.9em'><i class='fas fa-map-marker-alt'></i>&nbsp;&nbsp;<strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
