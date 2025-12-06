@@ -191,18 +191,32 @@ if st.button("Analisar Morada"):
                 if lat and lon:
                     lat = float(lat)
                     lon = float(lon)
-                    
-                    # Add icon_text for the main address
-                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon, 'icon_text': '📍'}])
 
-                    # The main address marker
+                    ICON_DATA = {
+                        "address": {
+                            "url": "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                            "width": 128,
+                            "height": 128,
+                            "anchorY": 128,
+                        },
+                        "poi": {
+                            "url": "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                            "width": 128,
+                            "height": 128,
+                            "anchorY": 128,
+                        }
+                    }
+
+                    address_df = pd.DataFrame([{'name': 'Morada Analisada', 'lat': lat, 'lon': lon}])
+                    address_df["icon_data"] = [ICON_DATA["address"]]
+
                     address_layer = pdk.Layer(
-                        "TextLayer",
+                        "IconLayer",
                         data=address_df,
+                        get_icon="icon_data",
                         get_position='[lon, lat]',
-                        get_text='icon_text',
-                        get_color=[255, 0, 0],
-                        get_size=32, # Larger size for the main marker
+                        get_size=4,
+                        size_scale=15,
                         pickable=True,
                     )
                     
@@ -210,17 +224,15 @@ if st.button("Analisar Morada"):
 
                     if poi_locations:
                         poi_df = pd.DataFrame(poi_locations)
-                        # Add icon_text for POIs
-                        poi_df['icon_text'] = '🔵'
+                        poi_df["icon_data"] = [ICON_DATA["poi"]] * len(poi_locations)
                         
-                        # The POI markers
                         poi_layer = pdk.Layer(
-                            "TextLayer",
+                            "IconLayer",
                             data=poi_df,
+                            get_icon="icon_data",
                             get_position='[lon, lat]',
-                            get_text='icon_text',
-                            get_color=[0, 0, 255],
-                            get_size=16, # Smaller size for POIs
+                            get_size=4,
+                            size_scale=10,
                             pickable=True,
                         )
                         layers_to_render.append(poi_layer)
