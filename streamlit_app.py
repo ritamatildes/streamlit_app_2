@@ -144,7 +144,7 @@ def get_analysis_for_address(address):
     # --- Return Final Message ---
     message = ""
     if final_class and out_pop and out_cirac_desc:
-        message = f"A morada que analisou ({address}) apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
+        message = f"A morada que analisou ({address}) apresenta um potencial {final_class}: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
@@ -154,7 +154,6 @@ def get_analysis_for_address(address):
 st.title("Análise de Potencial de Morada")
 
 address_input = st.text_input("Por favor, introduza a morada para análise:", "")
-basemap_selection = st.radio("Escolha o tipo de mapa:", ("Padrão", "Satélite"))
 
 if st.button("Analisar Morada"):
     if address_input:
@@ -190,18 +189,12 @@ if st.button("Analisar Morada"):
                     )
                     layers_to_render.append(poi_layer)
                 
-                # Set map style based on user selection
-                if basemap_selection == "Satélite":
-                    map_style = "https://basemaps.cartocdn.com/gl/satellite-gl-style/style.json"
-                else:
-                    map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
-
                 st.pydeck_chart(pdk.Deck(
-                    map_style=map_style,
+                    map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
                     initial_view_state=pdk.ViewState(
                         latitude=lat,
                         longitude=lon,
-                        zoom=15, # Zoom to approx 1km view
+                        zoom=15,
                         pitch=0,
                         bearing=0
                     ),
@@ -216,6 +209,6 @@ if st.button("Analisar Morada"):
             elif final_class == "ALTO":
                 st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
             else:
-                st.warning(result_message)
+                st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
     else:
-        st.warning("Por favor, introduza uma morada.")
+        st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">Por favor, introduza uma morada.</div>', unsafe_allow_html=True)
