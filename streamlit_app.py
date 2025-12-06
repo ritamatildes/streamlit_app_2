@@ -5,11 +5,8 @@ import urllib.parse
 import csv
 import io
 import pandas as pd
-import pydeck as pdk
 
 # --- Set Background Color ---
-# This is a bit of CSS (the language used to style web pages)
-# to change the background color of our app.
 page_bg_img = """
 <style>
 [data-testid="stAppViewContainer"] {
@@ -24,7 +21,7 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 def get_analysis_for_address(address):
     """
     This function takes an address and performs all the data gathering and analysis.
-    It returns the final message, coordinates, and points of interest.
+    It returns the final message, class, and coordinates.
     """
     safe_address = urllib.parse.quote(address)
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_address}&format=json"
@@ -35,17 +32,17 @@ def get_analysis_for_address(address):
         geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None, None
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
 
     if not input_lat or not input_lon:
-        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -54,15 +51,14 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon, None
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon
 
     # --- Data Gathering (Population, CIRAC, POIs) ---
-    poi_locations = []
     try:
         csv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0A79pNYNO4YD-jhyZ4baNjHsGZCsAyTgVlZgaoSGdKN_ehlS5fUnwmESyknqyy-Wf9-30OnjdCR3I/pub?gid=0&single=true&output=csv"
         csv_response = requests.get(csv_url)
@@ -93,31 +89,15 @@ def get_analysis_for_address(address):
         poi_response = requests.post(overpass_url, data=overpass_query)
         poi_response.raise_for_status()
         poi_data = poi_response.json()
-        
-        # Get the name and location of each point of interest
-        unique_poi_coords = set()
-        for el in poi_data.get('elements', []):
-            tags = el.get('tags', {})
-            name = tags.get('name')
-            if name:
-                lat, lon = (None, None)
-                if el['type'] == 'node':
-                    lat, lon = el.get('lat'), el.get('lon')
-                elif 'center' in el:
-                    lat, lon = el['center'].get('lat'), el['center'].get('lon')
-                
-                if lat and lon and (lat, lon) not in unique_poi_coords:
-                    poi_locations.append({'name': name, 'lat': lat, 'lon': lon})
-                    unique_poi_coords.add((lat, lon))
-
-        out_poi_count = len(poi_locations)
+        points_of_interest = [el.get('tags', {}).get('name') for el in poi_data.get('elements', []) if el.get('tags', {}).get('name')]
+        out_poi_count = len(points_of_interest)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon, None
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon
 
     # --- Scoring ---
     final_class = None
-    if out_pop and out_poi_count >= 0: # Allow for 0 POIs
+    if out_pop and out_poi_count >= 0:
         numeric_population = int(out_pop.replace(",", ""))
         resid_poi = numeric_population / (out_poi_count + 1) # Avoid division by zero
         
@@ -151,7 +131,7 @@ def get_analysis_for_address(address):
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
-    return message, final_class, input_lat, input_lon, poi_locations
+    return message, final_class, input_lat, input_lon
 
 # --- Streamlit App Interface ---
 st.title("Análise de Potencial de Morada")
@@ -161,69 +141,21 @@ address_input = st.text_input("Por favor, introduza a morada para análise:", ""
 if st.button("Analisar Morada"):
     if address_input:
         with st.spinner("A analisar... Por favor, aguarde."):
-            result_message, final_class, lat, lon, poi_locations = get_analysis_for_address(address_input)
+            result_message, final_class, lat, lon = get_analysis_for_address(address_input)
 
+            # Display the map if we have coordinates
             if lat and lon:
-                lat = float(lat)
-                lon = float(lon)
-                
-                address_df = pd.DataFrame([{'lat': lat, 'lon': lon, 'name': 'Morada Analisada'}])
+                map_data = pd.DataFrame({'lat': [float(lat)], 'lon': [float(lon)]})
+                st.map(map_data)
 
-                # Layer for the 500m radius circle
-                radius_layer = pdk.Layer(
-                    "ScatterplotLayer",
-                    data=address_df,
-                    get_position='[lon, lat]',
-                    get_radius=500,
-                    get_fill_color=[50, 150, 255, 70],
-                    stroked=False
-                )
-
-                # Layer for the main address (red dot)
-                address_layer = pdk.Layer(
-                    "ScatterplotLayer",
-                    data=address_df,
-                    get_position='[lon, lat]',
-                    get_fill_color=[255, 0, 0, 200],
-                    get_radius=25,
-                    pickable=True
-                )
-                
-                layers_to_render = [radius_layer, address_layer]
-
-                # Layer for the Points of Interest (blue dots)
-                if poi_locations:
-                    poi_df = pd.DataFrame(poi_locations)
-                    poi_layer = pdk.Layer(
-                        "ScatterplotLayer",
-                        data=poi_df,
-                        get_position='[lon, lat]',
-                        get_fill_color=[0, 0, 255, 200],
-                        get_radius=15,
-                        pickable=True
-                    )
-                    layers_to_render.append(poi_layer)
-
-                st.pydeck_chart(pdk.Deck(
-                    map_style='mapbox://styles/mapbox/light-v9',
-                    initial_view_state=pdk.ViewState(
-                        latitude=lat,
-                        longitude=lon,
-                        zoom=14,
-                        pitch=50,
-                    ),
-                    layers=layers_to_render,
-                    tooltip={"html": "<b>{name}</b>", "style": {"color": "white"}}
-                ))
-
-            # Display the text analysis below the map
+            # Use the final_class to decide the color
             if final_class == "BAIXO":
                 st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
             elif final_class == "MÉDIO":
                 st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
             elif final_class == "ALTO":
                 st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
-            else:
+            else: # This will handle error messages that don't have a class
                 st.warning(result_message)
     else:
         st.warning("Por favor, introduza uma morada.")
