@@ -153,9 +153,14 @@ def get_analysis_for_address(address):
     # --- Return Final Message ---
     message = ""
     if final_class and out_pop and out_cirac_desc:
-        message = f"""<p>A morada analizada localiza-se no concelho ({out_municipality}) onde residem {out_pop} pessoas.</p>
-<p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} pontos de interesse.</p>
-<p><strong>Esta localização tem um potencial global {final_class}.</strong></p>"""
+        try:
+            pop_number = int(out_pop.replace(",", ""))
+            out_pop_formatted = f"{pop_number:,}".replace(",", " ")
+        except (ValueError, TypeError):
+            out_pop_formatted = out_pop
+
+        message = f'''<p>A morada analizada localiza-se no concelho ({out_municipality}) onde residem {out_pop_formatted} pessoas.</p>
+<p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} pontos de interesse.</p>'''
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
@@ -181,25 +186,31 @@ if st.button("Analisar Morada"):
                     color = "#f8d7da"
 
                 # Display the main potential box at the top
-                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong><br><small>{address_input}</small></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><span style="font-size: 1.5em;"><strong>POTENCIAL {final_class}</strong></span><br><span style="font-size: 1.2em;">{address_input}</span></div>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True) # Add some space
 
                 col1, col2 = st.columns(2)
 
                 with col1:
                     # Use the same color for the detailed message box
-                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; font-size: 0.9em;">{result_message}</div>', unsafe_allow_html=True)
                 
                 with col2:
                     st.markdown("##### Resumo dos Dados")
-                    st.markdown(f"**Concelho:** {out_municipality}")
-                    st.markdown(f"**População:** {out_pop}")
-                    st.markdown(f"**Risco de Inundação:** {out_cirac_desc}")
-                    st.markdown(f"**Total de Pontos de Interesse (500m):** {out_poi_count}")
+                    try:
+                        pop_number = int(out_pop.replace(",", ""))
+                        out_pop_formatted = f"{pop_number:,}".replace(",", " ")
+                    except (ValueError, TypeError):
+                        out_pop_formatted = out_pop
+                    st.markdown(f"<p style='font-size:0.9em'><strong>Concelho:</strong> {out_municipality}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><strong>População:</strong> {out_pop_formatted}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><strong>Risco de Inundação:</strong> {out_cirac_desc}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-size:0.9em'><strong>Total de Pontos de Interesse (500m):</strong> {out_poi_count}</p>", unsafe_allow_html=True)
+
                     if poi_categories:
                         with st.expander("Ver detalhes dos POIs"):
                             for category, count in sorted(poi_categories.items()):
-                                st.markdown(f"- {category}: {count}")
+                                st.markdown(f"<div style='font-size:0.9em'>- {category}: {count}</div>", unsafe_allow_html=True)
 
                 if lat and lon:
                     lat = float(lat)
