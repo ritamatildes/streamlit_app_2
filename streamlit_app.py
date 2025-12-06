@@ -153,7 +153,7 @@ def get_analysis_for_address(address):
     # --- Return Final Message ---
     message = ""
     if final_class and out_pop and out_cirac_desc:
-        message = f"A morada que analisou ({address}) apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
+        message = f"Apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
@@ -179,7 +179,7 @@ if st.button("Analisar Morada"):
                     color = "#f8d7da"
 
                 # Display the main potential box at the top
-                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background-color: {color}; color: black; padding: 10px; border-radius: 5px; text-align: center;"><strong>POTENCIAL {final_class}</strong><br><small>{address_input}</small></div>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True) # Add some space
 
                 col1, col2 = st.columns(2)
