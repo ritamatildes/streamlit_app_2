@@ -155,7 +155,7 @@ def get_analysis_for_address(address):
     if final_class and out_pop and out_cirac_desc:
         message = f"""<p>A morada analizada localiza-se no concelho ({out_municipality}) onde residem {out_pop} pessoas.</p>
 <p>Apresenta um {out_cirac_desc} de inundação (CIRAC 2.0) e, num raio de 500m, existem {out_poi_count} pontos de interesse.</p>
-<p><strong>Para a tomada de decisão, deve considerar que esta localização tem um potencial global {final_class}.</strong></p>"""
+<p><strong>Esta localização tem um potencial global {final_class}.</strong></p>"""
     else:
         message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
     
