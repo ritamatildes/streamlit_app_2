@@ -3,10 +3,22 @@ import requests
 import urllib.parse
 import csv
 import io
+import pandas as pd
+
+# --- Set Background Color ---
+# This is a bit of CSS (the language used to style web pages)
+# to change the background color of our app.
+page_bg_img = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background-color: #e6ffef; /* A light, friendly green */
+}
+</style>
+"""
+st.markdown(page_bg_img, unsafe_allow_html=True)
+
 
 # --- Core Logic Function ---
-# We wrap all our previous logic in a single function.
-# This makes the code clean and easy for Streamlit to use.
 def get_analysis_for_address(address):
     """
     This function takes an address and performs all the data gathering and analysis.
@@ -18,17 +30,21 @@ def get_analysis_for_address(address):
     
     try:
         geocode_response = requests.get(geocode_url, headers=headers)
-        geocode_response.raise_for_status() # This will raise an error for bad responses (4xx or 5xx)
+        geocode_response.raise_for_status()
         results = geocode_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação: {e}"
+        return f"Erro de rede ao contactar o serviço de geocodificação: {e}", None, None, None
 
     if not results:
-        return "Não foi possível encontrar as coordenadas para a morada indicada."
+        return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None
 
     first_result = results[0]
     input_lat = first_result.get('lat')
     input_lon = first_result.get('lon')
+
+    # We add a check here to make sure we actually got the coordinates.
+    if not input_lat or not input_lon:
+        return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None
 
     reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
     
@@ -37,12 +53,12 @@ def get_analysis_for_address(address):
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}"
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon
 
     out_municipality = location_data.get('city')
 
     if not out_municipality:
-        return "Não foi possível encontrar o concelho para a morada indicada."
+        return "Não foi possível encontrar o concelho para a morada indicada.", None, input_lat, input_lon
 
     # --- Data Gathering (Population, CIRAC, POIs) ---
     try:
@@ -79,7 +95,7 @@ def get_analysis_for_address(address):
         out_poi_count = len(points_of_interest)
 
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao obter dados (população ou POIs): {e}"
+        return f"Erro de rede ao obter dados (população ou POIs): {e}", None, input_lat, input_lon
 
     # --- Scoring ---
     final_class = None
@@ -111,28 +127,42 @@ def get_analysis_for_address(address):
         else: final_class = "ALTO"
 
     # --- Return Final Message ---
+    message = ""
     if final_class and out_pop and out_cirac_desc:
-        return f"A morada que analisou ({address}) apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
+        message = f"A morada que analisou ({address}) apresenta um potencial **{final_class}**: neste concelho ({out_municipality}) residem {out_pop} pessoas, o risco de inundação é {out_cirac_desc} e, num raio de 500m, existem {out_poi_count} pontos de interesse."
     else:
-        return "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
-
+        message = "Não foi possível concluir a análise. Um ou mais dados (população, POIs) não foram encontrados para este local."
+    
+    # Return the message, class, and coordinates
+    return message, final_class, input_lat, input_lon
 
 # --- Streamlit App Interface ---
-
 st.title("Análise de Potencial de Morada")
 
-# The text_input function creates a text box in the web app
 address_input = st.text_input("Por favor, introduza a morada para análise:", "")
 
-# The button function creates a button. The code inside this "if" statement
-# will only run when the user clicks the button.
 if st.button("Analisar Morada"):
     if address_input:
-        # We show a spinner while the analysis is running
         with st.spinner("A analisar... Por favor, aguarde."):
-            result_message = get_analysis_for_address(address_input)
-            # The success function displays the message in a green box
-            st.success(result_message)
+            # Unpack the four return values from the function
+            result_message, final_class, lat, lon = get_analysis_for_address(address_input)
+
+            # Display the map if we have coordinates
+            if lat and lon:
+                # The st.map function needs the data in a specific format.
+                # We create a simple table-like structure called a DataFrame.
+                # It has two columns, 'lat' for latitude and 'lon' for longitude.
+                map_data = pd.DataFrame({'lat': [float(lat)], 'lon': [float(lon)]})
+                st.map(map_data)
+
+            # Use the final_class to decide the color
+            if final_class == "BAIXO":
+                st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+            elif final_class == "MÉDIO":
+                st.markdown(f'<div style="background-color: #fff3cd; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+            elif final_class == "ALTO":
+                st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">{result_message}</div>', unsafe_allow_html=True)
+            else: # This will handle error messages that don't have a class
+                st.warning(result_message)
     else:
-        # The warning function displays a message in a yellow box
         st.warning("Por favor, introduza uma morada.")
