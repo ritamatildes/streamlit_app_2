@@ -52,7 +52,6 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # --- Core Logic Function ---
 def get_analysis_for_address(address):
-    # ... (rest of the function is unchanged, so it is omitted for brevity) ...
     safe_address = urllib.parse.quote(address)
     geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_address}&format=json"
     headers = {'User-Agent': 'MyStreamlitApp/1.0'}
@@ -68,20 +67,32 @@ def get_analysis_for_address(address):
         return "Não foi possível encontrar as coordenadas para a morada indicada.", None, None, None, None, None, None, None, None, None, None
 
     first_result = results[0]
-    input_lat = first_result.get('lat')
-    input_lon = first_result.get('lon')
+    input_lat_str = first_result.get('lat')
+    input_lon_str = first_result.get('lon')
 
-    if not input_lat or not input_lon:
+    if not input_lat_str or not input_lon_str:
         return "O serviço de geocodificação não retornou uma latitude ou longitude para esta morada.", None, None, None, None, None, None, None, None, None, None
 
-    reverse_geocode_url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={input_lat}&longitude={input_lon}&localityLanguage=pt"
+    try:
+        input_lat = float(input_lat_str)
+        input_lon = float(input_lon_str)
+    except (ValueError, TypeError):
+        return f"Não foi possível converter latitude '{input_lat_str}' ou longitude '{input_lon_str}' para um número.", None, None, None, None, None, None, None, None, None, None
+
+    reverse_geocode_base_url = "https://api.bigdatacloud.net/data/reverse-geocode-client"
+    params = {
+        'latitude': input_lat,
+        'longitude': input_lon,
+        'localityLanguage': 'pt'
+    }
     
     try:
-        reverse_response = requests.get(reverse_geocode_url)
+        reverse_response = requests.get(reverse_geocode_base_url, params=params)
         reverse_response.raise_for_status()
         location_data = reverse_response.json()
     except requests.exceptions.RequestException as e:
-        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}", None, input_lat, input_lon, None, None, None, None, None, None, None
+        failed_url = e.response.url if e.response else "URL not available"
+        return f"Erro de rede ao contactar o serviço de geocodificação inversa: {e}. URL da tentativa: {failed_url}", None, input_lat, input_lon, None, None, None, None, None, None, None
 
     out_municipality = location_data.get('city')
 
